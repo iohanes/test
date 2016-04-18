@@ -1,8 +1,9 @@
 #!/usr/bin/env python2
 
 import numpy as np
-from ROOT import TH1D, TFile, gROOT, TCanvas
+from ROOT import TH1D, TFile, gROOT, TCanvas, TF1
 from Utilities import draw_and_save
+from scipy import stats
 import matplotlib.pyplot as plt
 
 class BinMoment(object):
@@ -12,8 +13,8 @@ class BinMoment(object):
 
     def get_bins(self):
         N = self.histogram.GetNbinsX()
-        print 'Warning manually deleting zero bins'
-        bins = np.array([self.histogram.GetBinContent(i) for i in range(1, N + 1) if self.histogram.GetBinContent(i)])
+        # print 'Warning manually deleting zero bins'
+        bins = np.array([self.histogram.GetBinContent(i) for i in range(1, N + 1)])
         return bins, N
 
     def get_moments(self):
@@ -60,11 +61,43 @@ class RandomWalker:
         return np.sum(result)
 
 def gen_histogram(name, title, lamda = 0.74):
-    walker = RandomWalker(30)
-    data  = walker.random_walk(int(1e5), lamda)
+    # walker = RandomWalker(30)
+    # data  = walker.random_walk(int(1e5), lamda)
+
+    # data = np.random.negative_binomial(29000, 0.9, lamda)
+    # print '>>>>>> ', min(data), max(data)
+    # data, edges = np.histogram(data, -2971 + 3452, (2971, 3452))
+
+
+    a, b = -1, 1
+    func = TF1('f1', 'TMath::Power(x,[0]) * TMath::Exp(- x * x / ([1] * [1]))', a, b)
+    func.SetParameter(0, 1)
+    func.SetParameter(1, 0.5)
+
+    data = [func.GetRandom() for i in range(10000) ]
+    func.Draw()
+    draw_and_save('test', True, True)
     data, edges = np.histogram(data, 100)
 
     hist = TH1R.FromNpArray(data, edges, name, title)
+    return hist
+
+def gen_function(name, title, lamda = 0.74):
+    # walker = RandomWalker(30)
+    # data  = walker.random_walk(int(1e5), lamda)
+
+    gROOT.cd()
+
+    x = np.arange(3000, 3452, 1)
+    nbd = lambda x: stats.nbinom.pmf(x, 29000, 0.9) 
+    data = nbd(x)
+    print data
+    dat1, edges = np.histogram(data, -3000 + 3452, (3000, 3452))
+    print data.size, len(edges)
+    # plt.plot(x, data)
+
+    hist = TH1R.FromNpArray(data, edges, name, title)
+    hist.Draw()
     return hist
 
 def read_histos():
@@ -85,15 +118,18 @@ def read_histos():
 
 def main():
     c1 = TCanvas('c1', 'Test', 800, 800)
-    # hists = [gen_histogram('normal', '#lambda = 0.74; x; counts'), gen_histogram('golden', 'Golden Ratio; x; counts', ( (5 ** 0.5) - 1 ) / 2.)]
-    hists = read_histos()
-    colors = [38, 46]
+    hists = [gen_histogram('normal', 'Strange distribution; x; counts', 100)]
+    # hists = [gen_function('normal', 'NBD analytic; x; counts')]
+    # hists = [gen_histogram('normal', 'Smaller statistics NBD; x; counts', int(1e07)), gen_histogram('golden', 'Bigger statistics NBD; x; counts', int(1e8))]
+    # hists = [gen_histogram('normal', 'Smaller statistics NBD; x; counts'), gen_histogram('golden', 'Golden Ratio; x; counts', ( (5 ** 0.5) - 1 ) / 2.)]
+    # hists = read_histos()
+    colors = [38]#, 46]
 
     for h, c in zip(hists, colors):
         binner = BinMoment(h)
         coef = binner.get_moments()
         plt.plot(np.arange(coef.size), coef, label = h.GetTitle())
-        plt.legend(loc='down center')
+        plt.legend(loc='lower center')
         plt.xlabel('j -- bin number')
         plt.ylabel('C_{j}')
         h.SetLineColor(c)
@@ -107,4 +143,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    main(       )
