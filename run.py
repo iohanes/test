@@ -6,6 +6,92 @@ from Utilities import draw_and_save
 from scipy import stats
 import matplotlib.pyplot as plt
 
+class DataRetreiver(object):
+    def __init__(self, name, title):
+        super(DataRetreiver, self).__init__()
+        self.name = name
+        self.title = title
+
+    def get_data(self, *args, **kwargs):
+        pass
+
+    def get_hist(self, *args, **kwargs):
+        data = self.get_data(*args, **kwargs)
+        data, edges = np.histogram(data, *args)
+        hist = TH1R.FromNpArray(data, edges, self.name, self.title)
+        return hist
+
+class GaussLikeRetreiver(DataRetreiver):
+    def __init__(self, name, title, mrange):
+        super(GaussLikeRetreiver, self).__init__(name, title)
+        self.mrange = mrange
+
+    def get_func(self, *args, **kwargs):
+        a, b = self.mrange 
+        func = TF1('f1', 'TMath::Power(x,[0]) * TMath::Exp(- x * x / ([1] * [1]))', a, b)
+        func.SetParameter(0, kwargs['gamma'])
+        func.SetParameter(1, kwargs['sigma'])
+        return func
+
+    def get_data(self, *args, **kwargs):
+        func = self.get_func(*args, **kwargs)
+        data = [func.GetRandom() for i in range(kwargs['ssize']) ]
+        # func.Draw()
+        # draw_and_save('test', True, True)
+        return data
+
+class GaussLikeAnalyticRetreiver(GaussLikeRetreiver):
+    def __init__(self, name, title, mrange):
+        super(GaussLikeAnalyticRetreiver, self).__init__(name, title, mrange)
+
+    def get_hist(self, *args, **kwargs):
+        func = self.get_func(*args, **kwargs)
+        data = np.array([func.Eval(i) for i in range(*self.mrange)])
+        x, edges = np.histogram(data, *args)
+        hist =  TH1R.FromNpArray(data, edges, self.name, self.title)
+        print '>>>>>>>>', len(data), len(edges)
+        print data
+        return hist
+
+
+class NBDRetreiver(DataRetreiver):
+    def __init__(self, name, title):
+        super(NBDRetreiver, self).__init__(name, title)
+
+    def get_data(self, *args, **kwargs):
+        # data = np.random.negative_binomial(29000, 0.9, lamda)
+        data = np.random.negative_binomial(**kwargs)
+        print '>>>>>> ', min(data), max(data)
+        return data
+        # possibly one needs to overload get_hist
+        # data, edges = np.histogram(data, -2971 + 3452, (2971, 3452))
+
+class NBDAnalyticRetreiver(DataRetreiver):
+    def __init__(self, name, title):
+        super(NBDRetreiver, self).__init__(name, title)
+
+    def get_data(self, *args, **kwargs):
+        x = np.arange(kwargs['start'], kwargs['stop'], 1)
+        nbd = lambda x: stats.nbinom.pmf(x, kwargs[n], kwargs[p]) 
+        data = nbd(x)
+        return data
+        # dat1, edges = np.histogram(data, -kwargs['start'] + kwargs['stop'], (kwargs['start'], kwargs['stop']))
+        # print data.size, len(edges)
+      
+class RWalkRetreiver(DataRetreiver):
+    def __init__(self, name, title):
+        super(RWalkRetreiver, self).__init__(name, title)
+
+    def get_hist(self, *args, **kwargs):
+        data, nbins = TFile.Open(self.name + '.root'), args[0]
+        self.name = self.name + '_' + str(nbins) 
+        a, b = data.random_walks.GetMinimum('gratio'), data.random_walks.GetMaximum('gratio')
+        hist = TH1R(self.name, 'nbins = %d, ' % nbins + self.title, nbins, a, b)
+        data.random_walks.Draw('gratio >> ' + self.name) 
+        return hist
+
+
+
 class BinMoment(object):
     def __init__(self, histogram):
         super(BinMoment, self).__init__()
@@ -20,8 +106,7 @@ class BinMoment(object):
     def get_moments(self):
         bins, N = self.get_bins()
         A = np.repeat(bins[::-1], N, axis =0) # Duplicate N times original array 
-        A = np.reshape(A, (N, N)).T           # Create NxN dimensional matrix from 
-        A = np.tril(A)                        # Lower tirangular matrix as required by equation
+        A = np.array([np.append(bins[::-1][i:], np.zeros(i)) for i in range(len(bins))])[::-1]
         b = bins * np.array([i for i in range(1, N + 1)])
 
         print 'bins', bins
@@ -46,98 +131,39 @@ class TH1R(TH1D):
         xtitle = xaxis.GetTitle().split("#Delta")[0] + ", #Delta = " + str(self.GetBinWidth(1))
         xaxis.SetTitle(xtitle)
         super(TH1R, self).Draw(options)
+
   
-
-class RandomWalker:
-    def __init__(self, steps):
-        self.nsteps = steps
-        self.random_step = lambda lamda, x, eps: eps * lamda  ** x
-        self.random_walk = lambda n, l: np.array([self.random_path(l) for i in range(n)])
-
-
-    def random_path(self, lamda):
-        powers, epsilon = np.arange(self.nsteps), np.random.choice([-1, 1], self.nsteps)
-        result = map(lambda x, eps : self.random_step(lamda, x, eps), powers, epsilon)
-        return np.sum(result)
-
-def gen_histogram(name, title, lamda = 0.74):
-    # walker = RandomWalker(30)
-    # data  = walker.random_walk(int(1e5), lamda)
-
-    # data = np.random.negative_binomial(29000, 0.9, lamda)
-    # print '>>>>>> ', min(data), max(data)
-    # data, edges = np.histogram(data, -2971 + 3452, (2971, 3452))
-
-
-    a, b = -1, 1
-    func = TF1('f1', 'TMath::Power(x,[0]) * TMath::Exp(- x * x / ([1] * [1]))', a, b)
-    func.SetParameter(0, 1)
-    func.SetParameter(1, 0.5)
-
-    data = [func.GetRandom() for i in range(10000) ]
-    func.Draw()
-    draw_and_save('test', True, True)
-    data, edges = np.histogram(data, 100)
-
-    hist = TH1R.FromNpArray(data, edges, name, title)
-    return hist
-
-def gen_function(name, title, lamda = 0.74):
-    # walker = RandomWalker(30)
-    # data  = walker.random_walk(int(1e5), lamda)
-
-    gROOT.cd()
-
-    x = np.arange(3000, 3452, 1)
-    nbd = lambda x: stats.nbinom.pmf(x, 29000, 0.9) 
-    data = nbd(x)
-    print data
-    dat1, edges = np.histogram(data, -3000 + 3452, (3000, 3452))
-    print data.size, len(edges)
-    # plt.plot(x, data)
-
-    hist = TH1R.FromNpArray(data, edges, name, title)
-    hist.Draw()
-    return hist
-
-def read_histos():
-    def process_hist(fname, title, Nbins = 10000):
-        data = TFile.Open(fname + '.root')
-        fname = fname + '_' + str(Nbins) 
-        a, b = data.random_walks.GetMinimum('gratio'), data.random_walks.GetMaximum('gratio')
-        hist = TH1R(fname, 'nbins = %d, ' % Nbins + title, Nbins, a, b)
-        data.random_walks.Draw('gratio >> ' + fname) 
-        return hist
-
-    a = process_hist('random_walks_data', 'Golden Ratio; x; counts')
-    b = process_hist('random_walks_data_nongold', '#lambda = 0.74; x; counts')
-    return a, b
-
-    # draw_and_save('test', True, True)
-
-
 def main():
     c1 = TCanvas('c1', 'Test', 800, 800)
-    hists = [gen_histogram('normal', 'Strange distribution; x; counts', 100)]
+    # hists = [gen_histogram('normal', 'Strange distribution; x; counts', 100)]
+    # readers = [DataRetreiver('normal', 'Strange distribution; x; counts')]
+    # readers = [GaussLikeRetreiver('norm1', 'Random Nev=1e8; x; counts', (1, 60)), GaussLikeAnalyticRetreiver('norm2', 'Analytic; x; counts', (1, 60)) ]
+    # hists = [r.get_hist(59, (1, 60), gamma=0.5, sigma=10, ssize=100000000) for r in readers]
     # hists = [gen_function('normal', 'NBD analytic; x; counts')]
     # hists = [gen_histogram('normal', 'Smaller statistics NBD; x; counts', int(1e07)), gen_histogram('golden', 'Bigger statistics NBD; x; counts', int(1e8))]
     # hists = [gen_histogram('normal', 'Smaller statistics NBD; x; counts'), gen_histogram('golden', 'Golden Ratio; x; counts', ( (5 ** 0.5) - 1 ) / 2.)]
-    # hists = read_histos()
-    colors = [38]#, 46]
+    readers = [RWalkRetreiver('random_walks_data', 'Golden'), RWalkRetreiver('random_walks_data_nongold', 'Simple')]
+    hists = [r.get_hist(100, (1, 60), gamma=0.5, sigma=10, ssize=100000000) for r in readers]
+
+    colors = [38, 46]
 
     for h, c in zip(hists, colors):
         binner = BinMoment(h)
         coef = binner.get_moments()
-        plt.plot(np.arange(coef.size), coef, label = h.GetTitle())
+        # print 'coefs', coef
+        j = np.arange(coef.size) + 1
+        # plt.plot(j, coef , label = h.GetTitle())
+        plt.plot(j, (j** 4 ) * coef / 1000. , 'o-',label = h.GetTitle())
         plt.legend(loc='lower center')
         plt.xlabel('j -- bin number')
-        plt.ylabel('C_{j}')
+        plt.ylabel('C_{j}  ')
         h.SetLineColor(c)
+        h.Scale(1. / h.Integral())
         h.Draw('hist same')
 
     name = hists[0].GetName()
-    draw_and_save('hist_' + name, True, True)
-    plt.savefig('c_' + name + '.png')
+    draw_and_save('jhist_' + name, True, True)
+    plt.savefig('jc_' + name + '.png')
     plt.show()
 
 
