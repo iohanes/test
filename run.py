@@ -68,15 +68,18 @@ class NBDRetreiver(DataRetreiver):
 
 class NBDAnalyticRetreiver(DataRetreiver):
     def __init__(self, name, title):
-        super(NBDRetreiver, self).__init__(name, title)
+        super(NBDAnalyticRetreiver, self).__init__(name, title)
 
-    def get_data(self, *args, **kwargs):
+    def get_hist(self, *args, **kwargs):
         x = np.arange(kwargs['start'], kwargs['stop'], 1)
-        nbd = lambda x: stats.nbinom.pmf(x, kwargs[n], kwargs[p]) 
+        nbd = lambda x: stats.nbinom.pmf(x, kwargs['n'], kwargs['p']) 
         data = nbd(x)
-        return data
-        # dat1, edges = np.histogram(data, -kwargs['start'] + kwargs['stop'], (kwargs['start'], kwargs['stop']))
-        # print data.size, len(edges)
+        x, edges = np.histogram(data, *args)
+        hist =  TH1R.FromNpArray(data, edges, self.name, self.title)
+        print '>>>>>>>>', len(data), len(edges)
+        print data
+        return hist
+
       
 class RWalkRetreiver(DataRetreiver):
     def __init__(self, name, title):
@@ -138,14 +141,17 @@ def main():
     # hists = [gen_histogram('normal', 'Strange distribution; x; counts', 100)]
     # readers = [DataRetreiver('normal', 'Strange distribution; x; counts')]
     # readers = [GaussLikeRetreiver('norm1', 'Random Nev=1e8; x; counts', (1, 60)), GaussLikeAnalyticRetreiver('norm2', 'Analytic; x; counts', (1, 60)) ]
-    # hists = [r.get_hist(59, (1, 60), gamma=0.5, sigma=10, ssize=100000000) for r in readers]
+    readers = [NBDAnalyticRetreiver('norm1', 'Nbd ; counts') ]
+    # hists = [r.get_hist(59, (1, 70), gamma=0.5, sigma=10, ssize=10000000, n=10, p= 100) for r in readers]
+    n , p = 70, 0.5
+    hists = [r.get_hist(94, (30, 125), start=30, stop=125, n=n, p=p) for r in readers]
     # hists = [gen_function('normal', 'NBD analytic; x; counts')]
     # hists = [gen_histogram('normal', 'Smaller statistics NBD; x; counts', int(1e07)), gen_histogram('golden', 'Bigger statistics NBD; x; counts', int(1e8))]
     # hists = [gen_histogram('normal', 'Smaller statistics NBD; x; counts'), gen_histogram('golden', 'Golden Ratio; x; counts', ( (5 ** 0.5) - 1 ) / 2.)]
-    readers = [RWalkRetreiver('random_walks_data', 'Golden'), RWalkRetreiver('random_walks_data_nongold', 'Simple')]
-    hists = [r.get_hist(100, (1, 60), gamma=0.5, sigma=10, ssize=100000000) for r in readers]
+    # readers = [RWalkRetreiver('random_walks_data', 'Golden'), RWalkRetreiver('random_walks_data_nongold', 'Simple')][::-1]
+    # hists = [r.get_hist(100, (1, 65), gamma=0.5, sigma=10, ssize=1000000) for r in readers]
 
-    colors = [38, 46]
+    colors = [38]#, 46]
 
     for h, c in zip(hists, colors):
         binner = BinMoment(h)
@@ -153,10 +159,10 @@ def main():
         # print 'coefs', coef
         j = np.arange(coef.size) + 1
         # plt.plot(j, coef , label = h.GetTitle())
-        plt.plot(j, (j** 4 ) * coef / 1000. , 'o-',label = h.GetTitle())
+        plt.plot(j, (j** 4 ) * coef / 1000. , 'o-',label = h.GetTitle() + ' n =  %d, p = %.2g' % (n, p))
         plt.legend(loc='lower center')
         plt.xlabel('j -- bin number')
-        plt.ylabel('C_{j}  ')
+        plt.ylabel('C_{j} j^{4} / 1000')
         h.SetLineColor(c)
         h.Scale(1. / h.Integral())
         h.Draw('hist same')
