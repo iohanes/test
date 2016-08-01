@@ -6,7 +6,7 @@ from ROOT import TCanvas, TGraph
 from Models import NBDAnalyticRetreiver, BinMoment
 from Utilities import draw_and_save
 
-def draw_my_plot(star_tbin, stop_bin, nbins,  n=70, p=0.5, jpower = 0):
+def draw_my_plot(start_bin, stop_bin, nbins,  n=70, p=0.5, jpower = 0):
     if n < 0: 
         print 'Parameter "n" should be > 0 !!!\n Aborting...'
         return
@@ -19,7 +19,7 @@ def draw_my_plot(star_tbin, stop_bin, nbins,  n=70, p=0.5, jpower = 0):
     c1.Divide(2, 1)
 
     reader = NBDAnalyticRetreiver('norm1', 'NBD ; counts') 
-    h = reader.get_hist(nbins, (star_tbin, stop_bin), start=star_tbin, stop=stop_bin, n=n, p=p)
+    h = reader.get_hist(nbins, (start_bin, stop_bin), start=start_bin, stop=stop_bin, n=n, p=p)
 
     binner = BinMoment(h)
     coef = binner.get_moments()
@@ -46,7 +46,7 @@ def draw_all():
     n_slider = FloatSlider(value = 70, min=0, max=100, step=0.1)
     p_slider = FloatSlider(value = 0.5, min=0, max=1, step=0.01)
     j_slider = IntSlider(value = 0, min = -6, max = 6, step = 1)
-    w = interactive(draw_my_plot, xstart=xstart_slider, xstop=xstop_slider, nbins=nbins_slider, n=n_slider, p=p_slider, jpower=j_slider)
+    w = interactive(draw_my_plot, start_bin=xstart_slider, stop_bin=xstop_slider, nbins=nbins_slider, n=n_slider, p=p_slider, jpower=j_slider)
     return w
 
 def main():
