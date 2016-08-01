@@ -2,3 +2,4 @@
 *.pdf
 *.root
 *.pyc
+.ipynb_checkpoints/
