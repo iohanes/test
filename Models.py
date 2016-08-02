@@ -46,8 +46,7 @@ class GaussLikeAnalyticRetreiver(GaussLikeRetreiver):
         data = np.array([func.Eval(i) for i in range(*self.mrange)])
         x, edges = np.histogram(data, *args)
         hist =  TH1R.FromNpArray(data, edges, self.name, self.title)
-        print '>>>>>>>>', len(data), len(edges)
-        print data
+        if any(np.isnan(data)): print data
         return hist
 
 
@@ -58,7 +57,7 @@ class NBDRetreiver(DataRetreiver):
     def get_data(self, *args, **kwargs):
         # data = np.random.negative_binomial(29000, 0.9, lamda)
         data = np.random.negative_binomial(**kwargs)
-        print '>>>>>> ', min(data), max(data)
+        # print '>>>>>> ', min(data), max(data)
         return data
         # possibly one needs to overload get_hist
         # data, edges = np.histogram(data, -2971 + 3452, (2971, 3452))
@@ -73,8 +72,8 @@ class NBDAnalyticRetreiver(DataRetreiver):
         data = nbd(x)
         x, edges = np.histogram(data, *args)
         hist =  TH1R.FromNpArray(data, edges, self.name, self.title)
-        print '>>>>>>>>', len(data), len(edges)
-        print 'generated data:', data
+        # print '>>>>>>>>', len(data), len(edges)
+        if any(np.isnan(data)): print 'generated data:', data
         return hist
 
       
@@ -109,9 +108,9 @@ class BinMoment(object):
         A = np.array([np.append(bins[::-1][i:], np.zeros(i)) for i in range(len(bins))])[::-1]
         b = bins * np.array([i for i in range(1, N + 1)])
 
-        print 'bins', bins
-        print 'args', b
-        print 'matrix:\n', A
+        # print 'bins', bins
+        # print 'args', b
+        # print 'matrix:\n', A
 
         return np.linalg.solve(A, b)
 
