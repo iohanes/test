@@ -1,6 +1,7 @@
 import ROOT
 import numpy as np
 from scipy import stats
+from moments.utils import TH1R
 
 
 class DataRetreiver(object):
@@ -15,7 +16,7 @@ class DataRetreiver(object):
     def eval(self, *args, **kwargs):
         data = self.data(*args, **kwargs)
         data, edges = np.histogram(data, *args)
-        hist = TH1R.FromNpArray(data, edges, self.name, self.title)
+        hist = TH1R.form(data, edges, self.name, self.title)
         return hist
 
 
@@ -47,7 +48,7 @@ class GaussLikeAnalyticRetreiver(GaussLikeRetreiver):
         func = self.func(*args, **kwargs)
         data = np.array([func.Eval(i) for i in range(*self.mrange)])
         x, edges = np.histogram(data, *args)
-        hist = TH1R.FromNpArray(data, edges, self.name, self.title)
+        hist = TH1R.form(data, edges, self.name, self.title)
         if any(np.isnan(data)):
             print data
         return hist
@@ -74,7 +75,7 @@ class NBDAnalyticRetreiver(DataRetreiver):
         x = np.arange(kwargs['start'], kwargs['stop'], 1)
         data = stats.nbinom.pmf(x, kwargs['n'], kwargs['p'])
         x, edges = np.histogram(data, *args)
-        hist = TH1R.FromNpArray(data, edges, self.name, self.title)
+        hist = TH1R.form(data, edges, self.name, self.title)
         # print '>>>>>>>>', len(data), len(edges)
         if any(np.isnan(data)):
             print 'generated data:', data
@@ -121,23 +122,3 @@ class BinMoment(object):
         # print 'matrix:\n', A
 
         return np.linalg.solve(A, b)
-
-
-class TH1R(ROOT.TH1D):
-    def __init__(self, *arg):
-        ROOT.gROOT.cd()
-        super(TH1R, self).__init__(*arg)
-
-    @staticmethod
-    def FromNpArray(data, edges, name='mDistr', title="Some title"):
-        hist = TH1R(name, title, data.size, edges.min(), edges.max())
-        for i, p in enumerate(data):
-            hist.SetBinContent(i + 1, p)
-        return hist
-
-    def Draw(self, options="hist"):
-        xaxis = self.GetXaxis()
-        xtitle = xaxis.GetTitle().split(
-            "#Delta")[0] + ", #Delta = " + str(self.GetBinWidth(1))
-        xaxis.SetTitle(xtitle)
-        super(TH1R, self).Draw(options)
